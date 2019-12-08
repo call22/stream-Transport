@@ -99,7 +99,7 @@ class Server:
             self.sendRtspReply()
 
         elif self.requestCommand == 'PAUSE':
-            self.state = self.PAUSE
+            self.state = self.READY
             # stop sendRtpPacket
             self.playEvent.set()
 
