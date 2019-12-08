@@ -7,7 +7,6 @@ from RtpPacket import RtpPacket
 from time import sleep
 from PicReposity import PicRepo
 
-MAX_LISTEN = 10
 MAX_SEND = 40000
 
 
@@ -38,27 +37,18 @@ class Server:
     PLAYING = 2
     state = INIT
 
-    def __init__(self, serverPort):
+    def __init__(self, address, sock):
         self.clientInfo = {}  # record: 1. rtpPort, 2. client address, 3. rtsp socket, 4. rtpSocket
+        self.clientInfo['clientAddress'] = address
+        self.clientInfo['rtspSocket'] = sock
         self.sessionId = 0
-        self.rtspSeq = 0
-        self.serverPort = serverPort
         self.tearDownRequest = 0
         self.rtpDataRepository = None
         # setup listen
         self.setupRtsp()
 
     def setupRtsp(self):
-        """set up Rtsp"""
-        self.rtspSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.rtspSocket.bind(('', self.serverPort))
-        self.rtspSocket.listen(MAX_LISTEN)
-        #   receive client's connect applications
-        while True:
-            client = self.rtspSocket.accept()
-            self.clientInfo['clientAddress'] = client[1][0]
-            self.clientInfo['rtspSocket'] = client[0]
-            threading.Thread(target=self.recvRtspRequest).start()
+        threading.Thread(target=self.recvRtspRequest).start()
 
     def recvRtspRequest(self):
         while True:
@@ -69,26 +59,26 @@ class Server:
     def parseRtspRequest(self, data):
         """Get public information"""
         request = data.split('\n')
-        self.requestCommand = request[0].split(' ')[0]
-        self.requestFile = request[0].split(' ')[1]
-        self.requestRtspV = request[0].split(' ')[2]
-        self.rtspSeq = int(request[1].split(' ')[1])
+        requestCommand = request[0].split(' ')[0]
+        requestFile = request[0].split(' ')[1]
+        requestRtspV = request[0].split(' ')[2]
+        rtspSeq = int(request[1].split(' ')[1])
 
-        if self.requestCommand == 'SETUP' and self.state == self.INIT:  # check file legal
+        if requestCommand == 'SETUP' and self.state == self.INIT:  # check file legal
             try:
-                self.rtpDataRepository = PicRepo(self.requestFile)
+                self.rtpDataRepository = PicRepo(requestFile)
             except IOError:
                 print("RTSP/1.0 404 NOT FOUND")
-                reply = 'RTSP/1.0 404 NOT FOUND\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
+                reply = 'RTSP/1.0 404 NOT FOUND\nCSeq: ' + str(rtspSeq) + '\nSession: ' + str(self.sessionId)
                 self.clientInfo['rtspSocket'].send(reply.encode())
             else:
                 self.state = self.READY
                 self.clientInfo['rtpPort'] = request[2].split(' ')[3]
                 # self.sessionId = md5(str(randint(1000, 10000)).encode('utf-8')).hexdigest()
                 self.sessionId = randint(1000, 10000)
-                self.sendRtspReply()
+                self.sendRtspReply(rtspSeq, requestRtspV)
 
-        elif self.requestCommand == 'PLAY' and self.state == self.READY:
+        elif requestCommand == 'PLAY' and self.state == self.READY:
             self.state = self.PLAYING
             # create new thread, send rtp packet
             self.clientInfo['rtpSocket'] = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -96,24 +86,24 @@ class Server:
             self.playEvent.clear()
             threading.Thread(target=self.sendRtpPacket).start()
 
-            self.sendRtspReply()
+            self.sendRtspReply(rtspSeq, requestRtspV)
 
-        elif self.requestCommand == 'PAUSE':
+        elif requestCommand == 'PAUSE':
             self.state = self.READY
             # stop sendRtpPacket
             self.playEvent.set()
 
-            self.sendRtspReply()
-        elif self.requestCommand == 'TEARDOWN':
+            self.sendRtspReply(rtspSeq, requestRtspV)
+        elif requestCommand == 'TEARDOWN':
             self.state = self.TEARDOWN
             # stop sendRtpPacket
             self.tearDownRequest = 1
 
-            self.sendRtspReply()
+            self.sendRtspReply(rtspSeq, requestRtspV)
 
-    def sendRtspReply(self):
+    def sendRtspReply(self, rtspSeq, requestV):
         """Reply for explicit command"""
-        reply = 'RTSP/1.0 200 OK\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
+        reply = requestV + ' 200 OK\nCSeq: ' + str(rtspSeq) + '\nSession: ' + str(self.sessionId)
         self.clientInfo['rtspSocket'].send(reply.encode())
         print('\nRTSP -> client: \n' + reply)
 
