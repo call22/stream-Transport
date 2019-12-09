@@ -3,8 +3,7 @@
   <component name="ChangeListManager">
     <list default="true" id="391bb701-f924-498a-8617-96fe3c3d872a" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Server.py" beforeDir="false" afterPath="$PROJECT_DIR$/Server.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ServerSet.py" beforeDir="false" afterPath="$PROJECT_DIR$/ServerSet.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/task2/PicReposity.py" beforeDir="false" afterPath="$PROJECT_DIR$/task2/StreamReposity.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -25,7 +24,7 @@
   <component name="ProjectId" id="1UYwBEWJhb5T6nj6OiJ13f3gw3Z" />
   <component name="PropertiesComponent">
     <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../Jingjing-Voluntary-Formal-branch-backend/JingJingBackend" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/task2" />
     <property name="settings.editor.selected.configurable" value="preferences.keymap" />
   </component>
   <component name="RunDashboard">

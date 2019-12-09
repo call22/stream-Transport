@@ -30,42 +30,87 @@ class Client:
 		self.rtpPort = int(rtpport)
 		self.fileName = filename
 		self.rtspSeq = 0
-		self.sessionId = 0
+		self.sessionId = ''
 		self.requestSent = -1
 		self.teardownAcked = 0
 		self.connectToServer()
 		self.frameNbr = 0
-		
+
 	def createWidgets(self):
 		"""Build GUI."""
-		# Create Setup button
-		self.setup = Button(self.master, width=20, padx=3, pady=3)
-		self.setup["text"] = "Setup"
-		self.setup["command"] = self.setupMovie
-		self.setup.grid(row=1, column=0, padx=2, pady=2)
-		
-		# Create Play button		
-		self.start = Button(self.master, width=20, padx=3, pady=3)
-		self.start["text"] = "Play"
-		self.start["command"] = self.playMovie
-		self.start.grid(row=1, column=1, padx=2, pady=2)
-		
-		# Create Pause button			
-		self.pause = Button(self.master, width=20, padx=3, pady=3)
-		self.pause["text"] = "Pause"
-		self.pause["command"] = self.pauseMovie
-		self.pause.grid(row=1, column=2, padx=2, pady=2)
-		
-		# Create Teardown button
-		self.teardown = Button(self.master, width=20, padx=3, pady=3)
-		self.teardown["text"] = "Teardown"
-		self.teardown["command"] =  self.exitClient
-		self.teardown.grid(row=1, column=3, padx=2, pady=2)
-		
 		# Create a label to display the movie
 		self.label = Label(self.master, height=19)
-		self.label.grid(row=0, column=0, columnspan=4, sticky=W+E+N+S, padx=5, pady=5) 
-	
+		self.label.pack(expand=True, fill=BOTH, side=TOP, pady=8)
+
+		# Create a progress bar to display progress
+		self.bar = Canvas(self.master, height=3, bg="white")
+		self.bar.pack(expand=False, fill=X, pady=8)
+
+		fm1 = Frame(self.master)
+		fm1.pack(expand=False, fill=X, pady=5)
+		fm2 = Frame(self.master)
+		fm2.pack(expand=False, fill=X, pady=5)
+
+		# Create Speed button
+		self.speed = Button(fm1, width=20)
+		self.speed.pack(side=LEFT, padx=2, expand=True)
+		self.speed["text"] = "+15s"
+		self.speed["command"] = self.goMovie
+
+		# Create Rewind button
+		self.rewind = Button(fm1, width=20)
+		self.rewind.pack(side=LEFT, padx=2, expand=True)
+		self.rewind["text"] = "-5s"
+		self.rewind["command"] = self.rewindMovie
+
+		# Create 2 speed button
+		self.double = Button(fm1, width=20)
+		self.double.pack(side=LEFT, padx=2, expand=True)
+		self.double["text"] = "x2"
+		self.double["command"] = self.doubleSpeed
+
+		# Create 0.5 speed button
+		self.half = Button(fm1, width=20)
+		self.half.pack(side=LEFT, padx=2, expand=True)
+		self.half["text"] = "x0.5"
+		self.half["command"] = self.halfSpeed
+
+		# Create Setup button
+		self.setup = Button(fm2, width=20)
+		self.setup.pack(side=LEFT, padx=2, expand=True)
+		self.setup["text"] = "Setup"
+		self.setup["command"] = self.setupMovie
+		
+		# Create Play button		
+		self.start = Button(fm2, width=20)
+		self.start.pack(side=LEFT, padx=2, expand=True)
+		self.start["text"] = "Play"
+		self.start["command"] = self.playMovie
+		
+		# Create Pause button			
+		self.pause = Button(fm2, width=20)
+		self.pause.pack(side=LEFT, padx=2, expand=True)
+		self.pause["text"] = "Pause"
+		self.pause["command"] = self.pauseMovie
+		
+		# Create Teardown button
+		self.teardown = Button(fm2, width=20)
+		self.teardown.pack(side=LEFT, padx=2, expand=True)
+		self.teardown["text"] = "Teardown"
+		self.teardown["command"] =  self.exitClient
+
+	def goMovie(self):
+		pass
+
+	def rewindMovie(self):
+		pass
+
+	def doubleSpeed(self):
+		pass
+
+	def halfSpeed(self):
+		pass
+
 	def setupMovie(self):
 		"""Setup button handler."""
 		if self.state == self.INIT:
@@ -75,13 +120,16 @@ class Client:
 		"""Teardown button handler."""
 		self.sendRtspRequest(self.TEARDOWN)		
 		self.master.destroy() # Close the gui window
-		os.remove(CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT) # Delete the cache image from video
+		os.remove(CACHE_FILE_NAME + self.sessionId + CACHE_FILE_EXT) # Delete the cache image from video
 
 	def pauseMovie(self):
 		"""Pause button handler."""
 		if self.state == self.PLAYING:
 			self.sendRtspRequest(self.PAUSE)
-	
+
+	def showProcess(self):	# show process
+		pass
+
 	def playMovie(self):
 		"""Play button handler."""
 		if self.state == self.READY:
@@ -119,7 +167,7 @@ class Client:
 					
 	def writeFrame(self, data):
 		"""Write the received frame to a temp image file. Return the image file."""
-		cachename = CACHE_FILE_NAME + str(self.sessionId) + CACHE_FILE_EXT
+		cachename = CACHE_FILE_NAME + self.sessionId + CACHE_FILE_EXT
 		file = open(cachename, "wb")
 		file.write(data)
 		file.close()
@@ -158,19 +206,19 @@ class Client:
 		# Play request
 		elif requestCode == self.PLAY and self.state == self.READY:
 			self.rtspSeq += 1
-			request = 'PLAY ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
+			request = 'PLAY ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + self.sessionId
 			self.requestSent = self.PLAY
 		
 		# Pause request
 		elif requestCode == self.PAUSE and self.state == self.PLAYING:
 			self.rtspSeq += 1
-			request = 'PAUSE ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId)
+			request = 'PAUSE ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + self.sessionId
 			self.requestSent = self.PAUSE
 			
 		# Teardown request
 		elif requestCode == self.TEARDOWN and not self.state == self.INIT:
 			self.rtspSeq += 1
-			request = 'TEARDOWN ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + str(self.sessionId) 
+			request = 'TEARDOWN ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + self.sessionId
 			self.requestSent = self.TEARDOWN
 		else:
 			return
@@ -201,9 +249,9 @@ class Client:
 		
 		# Process only if the server reply's sequence number is the same as the request's
 		if seqNum == self.rtspSeq:
-			session = int(lines[2].split(' ')[1])
+			session = lines[2].split(' ')[1]
 			# New RTSP session ID
-			if self.sessionId == 0:
+			if self.sessionId == '':
 				self.sessionId = session
 			
 			# Process only if the session ID is the same

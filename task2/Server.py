@@ -4,8 +4,8 @@ import socket, threading, sys, traceback, os
 from random import randint
 from hashlib import md5
 from RtpPacket import RtpPacket
+from StreamReposity import StreamRepo
 from time import sleep
-from PicReposity import PicRepo
 
 MAX_SEND = 40000
 
@@ -41,7 +41,7 @@ class Server:
         self.clientInfo = {}  # record: 1. rtpPort, 2. client address, 3. rtsp socket, 4. rtpSocket
         self.clientInfo['clientAddress'] = address
         self.clientInfo['rtspSocket'] = sock
-        self.sessionId = 0
+        self.sessionId = ''
         self.tearDownRequest = 0
         self.rtpDataRepository = None
         # setup listen
@@ -66,16 +66,15 @@ class Server:
 
         if requestCommand == 'SETUP' and self.state == self.INIT:  # check file legal
             try:
-                self.rtpDataRepository = PicRepo(requestFile)
+                self.rtpDataRepository = StreamRepo(requestFile, 1)
             except IOError:
                 print("RTSP/1.0 404 NOT FOUND")
-                reply = 'RTSP/1.0 404 NOT FOUND\nCSeq: ' + str(rtspSeq) + '\nSession: ' + str(self.sessionId)
+                reply = 'RTSP/1.0 404 NOT FOUND\nCSeq: ' + str(rtspSeq) + '\nSession: ' + self.sessionId
                 self.clientInfo['rtspSocket'].send(reply.encode())
             else:
                 self.state = self.READY
                 self.clientInfo['rtpPort'] = request[2].split(' ')[3]
-                # self.sessionId = md5(str(randint(1000, 10000)).encode('utf-8')).hexdigest()
-                self.sessionId = randint(1000, 10000)
+                self.sessionId = md5(str(randint(1000, 10000)).encode('utf-8')).hexdigest()
                 self.sendRtspReply(rtspSeq, requestRtspV)
 
         elif requestCommand == 'PLAY' and self.state == self.READY:
@@ -103,13 +102,12 @@ class Server:
 
     def sendRtspReply(self, rtspSeq, requestV):
         """Reply for explicit command"""
-        reply = requestV + ' 200 OK\nCSeq: ' + str(rtspSeq) + '\nSession: ' + str(self.sessionId)
+        reply = requestV + ' 200 OK\nCSeq: ' + str(rtspSeq) + '\nSession: ' + self.sessionId
         self.clientInfo['rtspSocket'].send(reply.encode())
         print('\nRTSP -> client: \n' + reply)
 
     def sendRtpPacket(self):
         while True:
-            sleep(0.10)
             if self.tearDownRequest:
                 self.clientInfo['rtpSocket'].shutdown(socket.SHUT_RDWR)
                 self.clientInfo['rtpSocket'].close()
@@ -118,7 +116,7 @@ class Server:
                 break
             # send data
             data = self.rtpDataRepository.getNextData()
-            print(len(data), '\n')
+            print(len(data))
             if data:
                 address = self.clientInfo['clientAddress']
                 port = int(self.clientInfo['rtpPort'])

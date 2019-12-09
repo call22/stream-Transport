@@ -4,6 +4,7 @@ import tkinter as tk
 from Client import Client
 import sys
 
+
 def clientSetup():
     try:
         serveraddr = sys.argv[1]
@@ -15,6 +16,7 @@ def clientSetup():
     else:
         master = tk.Tk()
         master.title('RTPClient')
+        master.geometry('700x600')
         Client(master=master, serveraddr=serveraddr, serverport=serverport,
                            rtpport=rtpport, filename=filename)
         master.mainloop()
