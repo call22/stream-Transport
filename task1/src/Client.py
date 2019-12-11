@@ -101,7 +101,7 @@ class Client:
 					rtpPacket.decode(data)
 
 					currFrameNbr = rtpPacket.seqNum()
-					print("Current Seq Num: " + str(currFrameNbr))
+					#print("Current Seq Num: " + str(currFrameNbr))
 					if currFrameNbr > self.frameNbr: # Discard the late packet
 						self.frameNbr = currFrameNbr
 						self.updateMovie(self.writeFrame(rtpPacket.getPayload()))

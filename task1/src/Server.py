@@ -128,7 +128,7 @@ class Server:
                 break
             # send data
             data = self.rtpDataRepository.getNextData()
-            print(len(data), '\n')
+           # print(len(data), '\n')
             if data:
                 address = self.clientInfo['clientAddress']
                 port = int(self.clientInfo['rtpPort'])

@@ -44,8 +44,8 @@ class Client:
         self.label.pack(expand=True, fill=BOTH, side=TOP, pady=8)
 
         # Create a progress bar to display progress
-        self.scale = Scale(self.master, from_=0, to=0, orient=HORIZONTAL, sliderlength=8,
-                           width=6, troughcolor="black", showvalue=NO)
+        self.scale = Scale(self.master, from_=0, to=0, orient=HORIZONTAL, sliderlength=10,
+                           width=10, troughcolor="black", showvalue=NO)
         self.scale.pack(expand=False, fill=X)
         self.master.bind_class("Scale", "<ButtonRelease-1>", self.updateTime)
 
@@ -130,6 +130,7 @@ class Client:
             print('update play...')
             print(self.scale.get())
             self.Movie["nowFrame"] = int(self.scale.get())
+            print(self.Movie["nowFrame"], '\n')
             self.state = self.READY
             self.sendRtspRequest(self.PLAY)
 
