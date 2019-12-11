@@ -23,6 +23,9 @@ class Client:
 
     # Initiation..
     def __init__(self, master, serveraddr, serverport, rtpport, filename):
+        self.master = master
+        self.master.protocol("WM_DELETE_WINDOW", self.handler)
+        self.createWidgets()
         self.serverAddr = serveraddr
         self.serverPort = int(serverport)
         self.rtpPort = int(rtpport)
@@ -32,11 +35,7 @@ class Client:
         self.requestSent = -1
         self.teardownAcked = 0
         self.connectToServer()
-        self.frameNbr = 0
-        self.Movie = {"totalTime": 0, "nowTime": 0, "rate": 1}
-        self.master = master
-        self.master.protocol("WM_DELETE_WINDOW", self.handler)
-        self.createWidgets()
+        self.Movie = {"totalFrame": 0, "nowFrame": 0, "speed": 1, "rate": 0.0}
 
     def createWidgets(self):
         """Build GUI."""
@@ -45,9 +44,10 @@ class Client:
         self.label.pack(expand=True, fill=BOTH, side=TOP, pady=8)
 
         # Create a progress bar to display progress
-        self.scale = Scale(self.master, from_=0, to=0, orient=HORIZONTAL, sliderlength=4,
-                           width=4, troughcolor="black", showvalue=NO)
+        self.scale = Scale(self.master, from_=0, to=0, orient=HORIZONTAL, sliderlength=8,
+                           width=6, troughcolor="black", showvalue=NO)
         self.scale.pack(expand=False, fill=X)
+        self.master.bind_class("Scale", "<ButtonRelease-1>", self.updateTime)
 
         fm = Frame(self.master)
         fm.pack(expand=False, fill=X)
@@ -62,28 +62,34 @@ class Client:
         fm1 = Frame(self.master)
         fm1.pack(expand=False, fill=X, pady=5)
         # Create Speed button
-        self.speed = Button(fm1, width=20)
+        self.speed = Button(fm1, width=15)
         self.speed.pack(side=LEFT, padx=2, expand=True)
         self.speed["text"] = "+15s"
         self.speed["command"] = self.goMovie
 
         # Create Rewind button
-        self.rewind = Button(fm1, width=20)
+        self.rewind = Button(fm1, width=15)
         self.rewind.pack(side=LEFT, padx=2, expand=True)
         self.rewind["text"] = "-5s"
         self.rewind["command"] = self.rewindMovie
 
         # Create 2 speed button
-        self.double = Button(fm1, width=20)
+        self.double = Button(fm1, width=15)
         self.double.pack(side=LEFT, padx=2, expand=True)
         self.double["text"] = "x2"
         self.double["command"] = self.doubleSpeed
 
         # Create 0.5 speed button
-        self.half = Button(fm1, width=20)
+        self.half = Button(fm1, width=15)
         self.half.pack(side=LEFT, padx=2, expand=True)
         self.half["text"] = "x0.5"
         self.half["command"] = self.halfSpeed
+
+        # Create 1 speed button
+        self.normal = Button(fm1, width=15)
+        self.normal.pack(side=LEFT, padx=2, expand=True)
+        self.normal["text"] = "x1.0"
+        self.normal["command"] = self.normalSpeed
 
         fm2 = Frame(self.master)
         fm2.pack(expand=False, fill=X, pady=5)
@@ -112,23 +118,42 @@ class Client:
         self.teardown["command"] = self.exitClient
 
     def goMovie(self):
-        pass
+        if self.state != self.INIT:
+            self.Movie["nowFrame"] += int(15.00 * self.Movie["rate"])
+            self.state = self.READY
+            self.sendRtspRequest(self.PLAY)
 
-    def updateTime(self, text):
-        if self.state == self.PLAYING:
+    def updateTime(self, event):
+        if self.state != self.INIT:
             print('update play...')
-            self.Movie["nowTime"] = float(text)
+            print(self.scale.get())
+            self.Movie["nowFrame"] = int(self.scale.get())
             self.state = self.READY
             self.sendRtspRequest(self.PLAY)
 
     def rewindMovie(self):
-        pass
+        if self.state != self.INIT:
+            self.Movie["nowFrame"] -= int(5.00 * self.Movie["rate"])
+            self.state = self.READY
+            self.sendRtspRequest(self.PLAY)
 
     def doubleSpeed(self):
-        pass
+        if self.state != self.INIT:
+            self.Movie["speed"] = 2.0
+            self.state = self.READY
+            self.sendRtspRequest(self.PLAY)
 
     def halfSpeed(self):
-        pass
+        if self.state != self.INIT:
+            self.Movie["speed"] = 0.5
+            self.state = self.READY
+            self.sendRtspRequest(self.PLAY)
+
+    def normalSpeed(self):
+        if self.state != self.INIT:
+            self.Movie["speed"] = 0.5
+            self.state = self.READY
+            self.sendRtspRequest(self.PLAY)
 
     def setupMovie(self):
         """Setup button handler."""
@@ -146,9 +171,6 @@ class Client:
         if self.state == self.PLAYING:
             self.sendRtspRequest(self.PAUSE)
 
-    def showProcess(self):  # show process
-        pass
-
     def playMovie(self):
         """Play button handler."""
         if self.state == self.READY:
@@ -161,28 +183,29 @@ class Client:
     def listenRtp(self):
         """Listen for RTP packets."""
         while True:
+
+            # Upon receiving ACK for TEARDOWN request,
+            # close the RTP socket
+            if self.teardownAcked == 1:
+                self.rtpSocket.shutdown(socket.SHUT_RDWR)
+                self.rtpSocket.close()
+                break
+
             try:
                 data = self.rtpSocket.recv(60000)
                 if data:
                     self._windows_update()
-
+                    # print("Movie:\n", self.Movie)
                     rtpPacket = RtpPacket()
                     rtpPacket.decode(data)
-
+                    # print(len(rtpPacket.getPayload()))
                     currFrameNbr = rtpPacket.seqNum()
-                    if currFrameNbr > self.frameNbr:  # Discard the late packet
-                        self.frameNbr = currFrameNbr
+                    if currFrameNbr > self.Movie["nowFrame"]:  # Discard the late packet
+                        self.Movie["nowFrame"] = currFrameNbr
                         self.updateMovie(self.writeFrame(rtpPacket.getPayload()))
             except:
                 # Stop listening upon requesting PAUSE or TEARDOWN
                 if self.playEvent.isSet():
-                    break
-
-                # Upon receiving ACK for TEARDOWN request,
-                # close the RTP socket
-                if self.teardownAcked == 1:
-                    self.rtpSocket.shutdown(socket.SHUT_RDWR)
-                    self.rtpSocket.close()
                     break
 
     def writeFrame(self, data):
@@ -219,7 +242,7 @@ class Client:
 
             # Write the RTSP request to be sent.
             request = 'SETUP ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(
-                self.rtspSeq) + '\nTransport: RTP/UDP; client_port= ' + str(self.rtpPort)
+                self.rtspSeq) + '\nTransport: RTP/UDP; client_port= ' + str(self.rtpPort) + '\n\n'
 
             # Keep track of the sent request.
             self.requestSent = self.SETUP
@@ -228,21 +251,22 @@ class Client:
         elif requestCode == self.PLAY and self.state == self.READY:
             self.rtspSeq += 1
             request = 'PLAY ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(self.rtspSeq) + '\nSession: ' + \
-                      self.sessionId + '\nRange: npt=' + str(self.Movie["nowTime"]) + '-' + str(self.Movie["totalTime"])  # Range设置播放时间范围
+                      self.sessionId + '\nRange: npt=' + str(self.Movie["nowFrame"]) + '-' + str(self.Movie["totalFrame"])\
+                      + '\nSpeed: ' + str(self.Movie["speed"]) + '\n\n'         # Range设置播放时间范围
             self.requestSent = self.PLAY
 
         # Pause request
         elif requestCode == self.PAUSE and self.state == self.PLAYING:
             self.rtspSeq += 1
             request = 'PAUSE ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(
-                self.rtspSeq) + '\nSession: ' + self.sessionId
+                self.rtspSeq) + '\nSession: ' + self.sessionId + '\n\n'
             self.requestSent = self.PAUSE
 
         # Teardown request
         elif requestCode == self.TEARDOWN and not self.state == self.INIT:
             self.rtspSeq += 1
             request = 'TEARDOWN ' + self.fileName + ' RTSP/1.0\nCSeq: ' + str(
-                self.rtspSeq) + '\nSession: ' + self.sessionId
+                self.rtspSeq) + '\nSession: ' + self.sessionId + '\n\n'
             self.requestSent = self.TEARDOWN
         else:
             return
@@ -262,8 +286,10 @@ class Client:
 
             # Close the RTSP socket upon requesting Teardown
             if self.requestSent == self.TEARDOWN:
+                print('\nTearDown...\n')
                 self.rtspSocket.shutdown(socket.SHUT_RDWR)
                 self.rtspSocket.close()
+                print('\nTearDown Finish\n')
                 break
 
     def parseRtspReply(self, data):
@@ -289,11 +315,13 @@ class Client:
                     elif self.requestSent == self.PLAY:
                         self.state = self.PLAYING
                         # get now time
-                        self.timeRecord = time.time()
-                        self.Movie["totalTime"] = float(lines[3].split('-')[1])
-                        self.Movie["nowTime"] = float(lines[3].split('=')[1].split('-')[0])
-                        self.totalTime["text"] = str(round(self.Movie["totalTime"] / 60, 2))
-                        self.scale["to"] = self.Movie["totalTime"]
+                        self.Movie["totalFrame"] = int(lines[3].split('-')[1])
+                        self.Movie["nowFrame"] = int(lines[3].split('=')[1].split('-')[0])
+                        self.Movie["speed"] = float(lines[4].split(' ')[1])
+                        self.Movie["rate"] = float(lines[5].split(' ')[1])
+                        totalTime = self.Movie["totalFrame"] / self.Movie["rate"]
+                        self.totalTime["text"] = str(int(totalTime // 3600)) + ':' + str(int(totalTime // 60)) + ':' + str(int(totalTime % 60))
+                        self.scale["to"] = self.Movie["totalFrame"]
                         # self.master.update()
                     elif self.requestSent == self.PAUSE:
                         self.state = self.READY
@@ -327,9 +355,7 @@ class Client:
             self.playMovie()
 
     def _windows_update(self):
-        self.Movie["nowTime"] = self.Movie["nowTime"] + time.time() - self.timeRecord
-        self.timeRecord = time.time()
-        self.nowTime["text"] = str(round(self.Movie["nowTime"] / 60, 2))  # min 单位
-        self.scale.set(self.Movie["nowTime"])
-        self.bar.coords(self.fill_line, (0, 0, self.master.winfo_width() * self.Movie["nowTime"] / self.Movie["totalTime"], 3))
-        # self.master.update()
+        nowtime = self.Movie["nowFrame"] / self.Movie["rate"]
+        self.nowTime["text"] = str(int(nowtime // 3600)) + ':' + str(int(nowtime // 60)) + ':' + str(int(nowtime % 60))  # min 单位
+        self.scale.set(self.Movie["nowFrame"])
+        self.bar.coords(self.fill_line, (0, 0, self.master.winfo_width() * self.Movie["nowFrame"] / self.Movie["totalFrame"], 3))

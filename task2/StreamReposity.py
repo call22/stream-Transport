@@ -1,17 +1,13 @@
 import cv2
+import numpy as np
+from random import randint
 import os
-from PIL import Image
+import time
 
 MAX_SIZE = 40000
 VideoTypeList = ['mp4']
 PlayTypeList = [0]
 
-
-def compressPic(img):
-    im = Image.open(img)
-    size = 700, 600
-    im.thumbnail(size)
-    im.save(img, 'JPEG')
 
 # time 以s为单位
 class StreamRepo:
@@ -23,7 +19,7 @@ class StreamRepo:
         except IOError:
             raise IOError('open %s fail.\n' % filename)
         self.framNum = 0
-        # self.playType = play    # 播放类型, 决定清晰度, 压缩不同
+        self.speed = 1  # 播放速度
 
     # get a frame from video, write in jpg, compress, read
     def getNextData(self):
@@ -37,31 +33,42 @@ class StreamRepo:
     def getFramNum(self):
         return self.framNum
 
-    def getTotalTime(self):
-        return self.duration
+    def getTotalFrame(self):
+        return self.totalFrames
 
-    def getNowTime(self):
-        print('getNowTime', self.vc.get(0)/1000)
-        return self.vc.get(0)/1000
+    def getSpeed(self):
+        return self.speed
 
-    def setFramPos(self, time):
-        print('setFramPos: ',time)
-        self.vc.set(cv2.CAP_PROP_POS_MSEC, time*1000)
+    def getRate(self):
+        return self.rate
+
+    def setFramPos(self, frame):
+        self.vc.set(cv2.CAP_PROP_POS_FRAMES, frame)
+        self.framNum = frame
+
+    def setSpeed(self, speed):
+        self.speed = speed
+
+    def removTempSrc(self):
+        os.remove(self.img)
 
     def _deal_video(self, filename):
         self.vc = cv2.VideoCapture(filename)
         self.rsuccess = self.vc.isOpened()
         if self.rsuccess:
-            rate = self.vc.get(5)
-            totalFrames = self.vc.get(7)
-            print('rate: ', rate, '\ntotalFrames: ', totalFrames)
-            self.duration = totalFrames/rate
+            self.rate = self.vc.get(5)
+            self.totalFrames = int(self.vc.get(7))
+            self.img = self.filename.split('.')[0] + str(randint(10, 50)) + '.jpg'
 
     def _change_frame_to_data(self, frame):
-        img = self.filename.split('.')[0] + '.jpg'
-        cv2.imencode('.jpg', frame)[1].tofile(img)
-        compressPic(img)
-        fi = open(img, 'rb')
+        # compress image
+        height, weight = frame.shape[0:2]
+        ratio = np.sqrt(100000/(height * weight))
+        newsize = (int( weight * ratio), int(height * ratio))
+        newFrame = cv2.resize(frame, newsize)
+        cv2.imwrite(self.img, newFrame)
+
+        fi = open(self.img, 'rb')
         data = fi.read(MAX_SIZE)
         fi.close()
         return data

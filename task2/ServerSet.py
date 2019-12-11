@@ -3,6 +3,7 @@
 import sys
 import socket
 from Server import Server
+import threading
 MAX_LISTEN = 10
 
 
@@ -17,7 +18,6 @@ def serverSetup():
         rtspSocket.listen(MAX_LISTEN)
         while True:
             sock, address = rtspSocket.accept()
-            print(sock, address)
             Server(address[0], sock)
 
 
