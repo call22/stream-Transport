@@ -118,12 +118,14 @@ class Client:
         self.teardown["command"] = self.exitClient
 
     def goMovie(self):
+        # +15.0s handler
         if self.state != self.INIT:
             self.Movie["nowFrame"] += int(15.00 * self.Movie["rate"])
             self.state = self.READY
             self.sendRtspRequest(self.PLAY)
 
     def updateTime(self, event):
+        # scale change play frame handler
         if self.state != self.INIT:
             print('update play...')
             print(self.scale.get())
@@ -132,24 +134,28 @@ class Client:
             self.sendRtspRequest(self.PLAY)
 
     def rewindMovie(self):
+        # -5s handler
         if self.state != self.INIT:
             self.Movie["nowFrame"] -= int(5.00 * self.Movie["rate"])
             self.state = self.READY
             self.sendRtspRequest(self.PLAY)
 
     def doubleSpeed(self):
+        # speed x2.0 handler
         if self.state != self.INIT:
             self.Movie["speed"] = 2.0
             self.state = self.READY
             self.sendRtspRequest(self.PLAY)
 
     def halfSpeed(self):
+        # speed x0.5 handler
         if self.state != self.INIT:
             self.Movie["speed"] = 0.5
             self.state = self.READY
             self.sendRtspRequest(self.PLAY)
 
     def normalSpeed(self):
+        # speed x1.0 handler
         if self.state != self.INIT:
             self.Movie["speed"] = 0.5
             self.state = self.READY
